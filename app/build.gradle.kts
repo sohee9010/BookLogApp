@@ -6,12 +6,16 @@ plugins {
 
 android {
     namespace = "com.example.fragmentapp"
-    compileSdk = 34 // 올바른 문법으로 수정
+    compileSdk = 34
+
+    buildFeatures { // ViewBinding 활성화
+        viewBinding = true
+    }
 
     defaultConfig {
         applicationId = "com.example.fragmentapp"
         minSdk = 27
-        targetSdk = 34 // compileSdk와 맞추는 것을 권장
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -43,6 +47,11 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.coil.kt) // Coil 의존성 추가
+
+    // 모든 문제의 원인이었던 누락된 핵심 라이브러리
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.viewpager2)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

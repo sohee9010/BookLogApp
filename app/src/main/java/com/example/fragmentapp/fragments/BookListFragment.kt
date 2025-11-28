@@ -1,26 +1,27 @@
 package com.example.fragmentapp.fragments
 
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.example.fragmentapp.MainActivity
-import com.example.fragmentapp.R
 import com.example.fragmentapp.adapters.BookAdapter
 import com.example.fragmentapp.data.BookRepository
+import com.example.fragmentapp.databinding.FragmentBookListBinding
 import com.example.fragmentapp.models.BookStatus
 
 class BookListFragment : Fragment() {
 
+    private var _binding: FragmentBookListBinding? = null
+    private val binding get() = _binding!!
+
     private var bookStatus: BookStatus? = null
     private val bookAdapter by lazy {
         BookAdapter { book ->
-            // 클릭된 책 정보를 MainActivity로 전달하여 상세 화면을 열도록 요청
             (activity as? MainActivity)?.navigateToDetail(book)
         }
     }
@@ -28,10 +29,16 @@ class BookListFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
-            bookStatus = it.getSerializable(ARG_BOOK_STATUS) as? BookStatus
+            // 안드로이드 버전에 맞는 올바른 getSerializable 사용
+            bookStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                it.getSerializable(ARG_BOOK_STATUS, BookStatus::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                it.getSerializable(ARG_BOOK_STATUS) as? BookStatus
+            }
         }
 
-        parentFragmentManager.setFragmentResultListener(REQUEST_KEY, this) { _, _ ->
+        parentFragmentManager.setFragmentResultListener(REQUEST_KEY_BOOK_CHANGED, this) { _, _ ->
             loadBooks()
         }
     }
@@ -39,15 +46,20 @@ class BookListFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_book_list, container, false)
+    ): View {
+        _binding = FragmentBookListBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val recyclerView = view.findViewById<RecyclerView>(R.id.recycler_view)
-        recyclerView.layoutManager = LinearLayoutManager(context)
-        recyclerView.adapter = bookAdapter
+        binding.recyclerView.layoutManager = LinearLayoutManager(context)
+        binding.recyclerView.adapter = bookAdapter
 
         loadBooks()
     }
@@ -57,11 +69,11 @@ class BookListFragment : Fragment() {
         val books = BookRepository.getBooksByStatus(status)
         bookAdapter.submitList(books)
 
-        view?.findViewById<TextView>(R.id.empty_view)?.isVisible = books.isEmpty()
+        binding.emptyView.isVisible = books.isEmpty()
     }
 
     companion object {
-        const val REQUEST_KEY = "book_added"
+        const val REQUEST_KEY_BOOK_CHANGED = "book_changed"
         private const val ARG_BOOK_STATUS = "book_status"
 
         @JvmStatic

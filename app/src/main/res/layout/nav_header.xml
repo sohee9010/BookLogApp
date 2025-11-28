@@ -11,17 +11,18 @@
     <ImageView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:src="@drawable/ic_launcher_foreground" />
+        android:src="@mipmap/ic_launcher_round" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="나만의 독서 관리"
+        android:paddingTop="8dp"
+        android:text="BookLog App"
         android:textAppearance="@style/TextAppearance.AppCompat.Body1" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="책과 함께하는 하루" />
+        android:text="내 손안의 독서 기록" />
 
 </LinearLayout>

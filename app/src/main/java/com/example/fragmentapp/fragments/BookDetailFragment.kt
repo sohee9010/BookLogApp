@@ -5,18 +5,21 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
-import android.widget.RatingBar
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar
 import androidx.fragment.app.Fragment
 import coil.load
 import com.example.fragmentapp.R
+import com.example.fragmentapp.data.BookRepository
+import com.example.fragmentapp.databinding.DialogAddBookBinding
+import com.example.fragmentapp.databinding.FragmentBookDetailBinding
 import com.example.fragmentapp.models.Book
-import com.google.android.material.appbar.CollapsingToolbarLayout
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 
 class BookDetailFragment : Fragment() {
+
+    private var _binding: FragmentBookDetailBinding? = null
+    private val binding get() = _binding!!
 
     private var book: Book? = null
 
@@ -33,39 +36,109 @@ class BookDetailFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        // MainActivity의 툴바를 숨깁니다.
+    ): View {
         (activity as? AppCompatActivity)?.supportActionBar?.hide()
-        return inflater.inflate(R.layout.fragment_book_detail, container, false)
+        _binding = FragmentBookDetailBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // Fragment가 사라질 때 MainActivity의 툴바를 다시 보여줍니다.
         (activity as? AppCompatActivity)?.supportActionBar?.show()
+        _binding = null
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         val bookData = book ?: return
 
-        // 툴바 설정 (액션바로 설정하지 않고, 뒤로가기 기능만 구현)
-        val toolbar = view.findViewById<Toolbar>(R.id.detail_toolbar)
-        toolbar.setNavigationOnClickListener { requireActivity().onBackPressedDispatcher.onBackPressed() }
+        setupToolbar(bookData)
+        bindBookData(bookData)
+    }
 
-        val collapsingToolbar = view.findViewById<CollapsingToolbarLayout>(R.id.collapsing_toolbar)
-        collapsingToolbar.title = bookData.title
+    private fun setupToolbar(book: Book) {
+        binding.detailToolbar.setNavigationOnClickListener { requireActivity().onBackPressedDispatcher.onBackPressed() }
+        binding.detailToolbar.inflateMenu(R.menu.detail_menu)
+        binding.detailToolbar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_edit -> {
+                    showEditBookDialog(book)
+                    true
+                }
+                R.id.action_delete -> {
+                    showDeleteConfirmationDialog(book)
+                    true
+                }
+                else -> false
+            }
+        }
+    }
 
-        // 데이터 바인딩
-        view.findViewById<ImageView>(R.id.iv_book_cover_large).load(bookData.coverImageUrl) {
+    private fun bindBookData(book: Book) {
+        binding.collapsingToolbar.title = book.title
+        binding.ivBookCoverLarge.load(book.coverImageUrl) {
             crossfade(true)
             placeholder(R.drawable.ic_launcher_background)
             error(R.drawable.ic_launcher_background)
         }
-        view.findViewById<TextView>(R.id.tv_detail_author).text = bookData.author
-        view.findViewById<RatingBar>(R.id.rb_detail_rating).rating = bookData.rating
-        view.findViewById<TextView>(R.id.tv_detail_memo).text = bookData.memo ?: "(메모 없음)"
+        binding.tvDetailAuthor.text = book.author
+        binding.rbDetailRating.rating = book.rating
+        binding.tvDetailMemo.text = book.memo ?: "(메모 없음)"
+    }
+
+    private fun showDeleteConfirmationDialog(book: Book) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("삭제 확인")
+            .setMessage("'${book.title}' 독서 기록을 정말 삭제하시겠습니까?")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("삭제") { _, _ ->
+                BookRepository.deleteBook(book)
+                parentFragmentManager.setFragmentResult(BookListFragment.REQUEST_KEY_BOOK_CHANGED, Bundle())
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+            .show()
+    }
+
+    private fun showEditBookDialog(bookToEdit: Book) {
+        val dialogBinding = DialogAddBookBinding.inflate(LayoutInflater.from(context))
+
+        dialogBinding.etBookTitle.setText(bookToEdit.title)
+        dialogBinding.etBookAuthor.setText(bookToEdit.author)
+        dialogBinding.etBookCoverUrl.setText(bookToEdit.coverImageUrl)
+        dialogBinding.etBookMemo.setText(bookToEdit.memo)
+        dialogBinding.rbBookRating.rating = bookToEdit.rating
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("책 정보 수정")
+            .setView(dialogBinding.root)
+            .setNegativeButton("취소", null)
+            .setPositiveButton("저장") { _, _ ->
+                val newTitle = dialogBinding.etBookTitle.text.toString()
+                val newAuthor = dialogBinding.etBookAuthor.text.toString()
+
+                if (newTitle.isBlank() || newAuthor.isBlank()) {
+                    Snackbar.make(binding.root, "제목과 저자는 필수 항목입니다.", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                val updatedBook = bookToEdit.copy(
+                    title = newTitle,
+                    author = newAuthor,
+                    memo = dialogBinding.etBookMemo.text.toString().ifBlank { null },
+                    rating = dialogBinding.rbBookRating.rating,
+                    coverImageUrl = dialogBinding.etBookCoverUrl.text.toString().ifBlank { null }
+                )
+
+                BookRepository.updateBook(updatedBook)
+
+                this.book = updatedBook
+                bindBookData(updatedBook)
+
+                parentFragmentManager.setFragmentResult(BookListFragment.REQUEST_KEY_BOOK_CHANGED, Bundle())
+
+                Snackbar.make(binding.root, "'${updatedBook.title}' 정보를 수정했습니다.", Snackbar.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     companion object {
